@@ -1,6 +1,13 @@
 .DS_Store
 *.bak
 
+# 外部ツール本体(入手方法は tools/README.md を参照。再配布しないため含めない)
+/tools/*
+!/tools/README.md
+
+# tools80 がソースの隣に出力する一時ファイル
+test/*.cmt
+
 # MPLAB X / XC8 ビルド生成物
 build/
 dist/

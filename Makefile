@@ -2,9 +2,9 @@
 #
 # 前提:
 #   - Java 実行環境(JAVA 変数で指定可)
-#   - tools80.jar … PC-8001 用アセンブラ。SD-DOS リポジトリ同梱のものを使う。
-#     既定は同階層に SD-DOS がある前提(../SD-DOS/tools/tools80.jar)。
-#     別の場所なら `make TOOLS80=/path/to/tools80.jar` で指定する。
+#   - tools80.jar … PC-8001 用アセンブラ。tools/ に置く(入手方法は tools/README.md)。
+#     ツール本体は再配布しないためリポジトリには含めない(.gitignore対象)。
+#     別の場所の jar を使うなら `make TOOLS80=/path/to/tools80.jar`。
 #   - (任意)ホスト C コンパイラ … firmware スタブの構文チェック用
 #
 # 主なターゲット:
@@ -16,7 +16,7 @@
 # PIC ファーム本体(firmware/*.c)の実機ビルドは MPLAB X + XC8 で行う(本 Makefile の対象外)。
 
 JAVA    ?= java
-TOOLS80 ?= ../SD-DOS/tools/tools80.jar
+TOOLS80 ?= tools/tools80.jar
 CC      ?= cc
 BUILD    = build
 
