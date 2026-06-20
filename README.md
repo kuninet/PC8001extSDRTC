@@ -107,11 +107,26 @@ SD-DOS は **ビットバンギング(既定)** と **PICSD** を同一ソース
 ```
 PC8001extSDRTC/
 ├── README.md          このファイル(設計概要)
+├── Makefile           PC-8001側テスト(WAITTEST)ビルド / firmware構文チェック
 ├── docs/
 │   └── protocol.md    D0H-D6H I/O 仕様(SD-DOS と共有する契約。最重要)
-├── hardware/          回路図・基板(KiCAD)。今は方針メモ
-└── firmware/          PIC18F47Q43 ファーム(MPLAB X / XC8)。今は構成と関数スタブ
+├── hardware/
+│   └── design.md      回路設計仕様・結線表・ピンアサイン・BOM
+├── firmware/          PIC18F47Q43 ファーム(MPLAB X / XC8)。今は構成と関数スタブ
+│   └── waittest/      /WAIT 検証用スタブ
+└── test/              /WAIT ハンドシェイク検証(PC-8001側 WAITTEST.asm + 手順)
 ```
+
+## ビルド
+
+```sh
+make            # build/WAITTEST.cmt(PC-8001側 /WAIT 検証)を生成
+make fw-check   # firmware の C スタブをホストで構文チェック
+```
+
+tools80(PC-8001 アセンブラ)は SD-DOS 同梱のものを使います。SD-DOS が同階層に無い場合は
+`make TOOLS80=/path/to/SD-DOS/tools/tools80.jar` で指定してください。PIC ファーム本体の実機
+ビルドは MPLAB X + XC8 で行います。
 
 ## 将来検討: PC-80S31(FD)互換モード
 

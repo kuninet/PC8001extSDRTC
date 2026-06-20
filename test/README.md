@@ -36,11 +36,19 @@ sequenceDiagram
 ## ビルドと実行
 
 ### PC-8001 側(WAITTEST.asm)
-tools80(j80 付属)でアセンブルします。SD-DOS リポジトリの `tools/tools80.jar` を利用:
+tools80(j80 付属)でアセンブルします。リポジトリ直下の Makefile が簡単です
+(SD-DOS が同階層にある前提。別の場所なら `TOOLS80=...` で指定):
+
+```sh
+make                     # build/WAITTEST.cmt を生成
+# 別パスの tools80 を使う場合:
+make TOOLS80=/path/to/SD-DOS/tools/tools80.jar
+```
+
+手で叩く場合:
 
 ```sh
 printf 'OK\n' | java -jar /path/to/SD-DOS/tools/tools80.jar -tgt=z80 WAITTEST.asm
-# → WAITTEST.cmt が生成される
 ```
 
 `.asm` は Shift-JIS です。生成した `WAITTEST.cmt` を実機へ LOAD し、モニタで **G9000** で起動します。
