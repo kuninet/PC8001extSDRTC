@@ -1,0 +1,139 @@
+;=================================================
+;WAITTEST - PICSDボードの /WAIT ハンドシェイク最小検証(PC-8001側)
+;=================================================
+;・PIC側スタブ(firmware/waittest/waittest.c)と対で使う。
+;・PIC は テストポートへのアクセスに対し「/WAITを下げて意図的に遅延 → 既知値を返す」
+;  ように応答する。/WAITが効いていれば読み値は常に正しい。効いていなければゴミになる。
+;・PIC側の振る舞い(契約):
+;    内部レジスタ last(電源投入時=55H)。
+;    READ  → /WAITで待たせてから last を返す。
+;    WRITE → last に書き込む(/WAITで整流)。
+;・画面表示 "RD=xx NG=nnn WR=yy" の読み方:
+;    RD  = テストポートの読み値(期待=EXPECT=55H)
+;    NG  = 256回読んで EXPECT と一致しなかった回数(0なら/WAIT正常・タイミングOK)
+;    WR  = A5Hを書いて読み戻した値(write→readエコー、期待=A5H)
+;  成功例: "RD=55 NG=000 WR=A5"
+;  NGが多い/RDがゴミ → /WAITが効いていない or タイミング不足(design.md・test/README参照)
+;・テストポートは 9003H をPOKEで変更可(既定 D0H)。
+;・使い方: LOAD → G9000。結果表示後 BASIC へ戻る。
+;=================================================
+
+TEST_PORT	EQU	0D0H		;既定テストポート(9003H POKEで変更可)
+EXPECT		EQU	55H		;PICが返す既知値(last の初期値)
+WVAL		EQU	0A5H		;write→read エコー確認に書く値
+CR		EQU	0DH
+LF		EQU	0AH
+BASIC		EQU	0081H
+
+	ORG	9000H
+
+	JP	START
+PORTV:	DB	TEST_PORT		;9003H POKE: テストポート番号
+
+START:
+	LD	(SAVSP),SP
+	LD	SP,STACK_TOP
+
+	;IN/OUT は即値ポートなので、PORTV の値で命令を自己書き換えする
+	LD	A,(PORTV)
+	LD	(RD1+1),A
+	LD	(RD2+1),A
+	LD	(WR1+1),A
+	LD	(RD3+1),A
+
+	;--- フェーズ1: READ。最初の値を表示し、256回読んでNG数を数える ---
+	LD	HL,MSG_RD
+	CALL	PUTS
+RD1:	IN	A,(TEST_PORT)		;ポートは自己書き換えされる
+	CALL	PRHEX			;最初の読み値(期待=55)
+
+	LD	B,0			;256回
+	LD	C,0			;NGカウンタ
+WLOOP:
+RD2:	IN	A,(TEST_PORT)
+	CP	EXPECT
+	JR	Z,WOK
+	INC	C
+WOK:	DJNZ	WLOOP
+	LD	HL,MSG_NG
+	CALL	PUTS
+	LD	A,C
+	CALL	PRDEC
+
+	;--- フェーズ2: WRITE→READ エコー ---
+	LD	HL,MSG_WR
+	CALL	PUTS
+	LD	A,WVAL
+WR1:	OUT	(TEST_PORT),A
+RD3:	IN	A,(TEST_PORT)
+	CALL	PRHEX
+
+	LD	HL,MSG_CRLF
+	CALL	PUTS
+	LD	SP,(SAVSP)
+	JP	BASIC
+
+;-------------------------------------------------
+;PRHEX - A を2桁16進で表示(RST 18H)
+;-------------------------------------------------
+PRHEX:
+	PUSH	AF
+	RRCA
+	RRCA
+	RRCA
+	RRCA
+	CALL	PRNIB
+	POP	AF
+PRNIB:	AND	0FH
+	ADD	A,90H
+	DAA
+	ADC	A,40H
+	DAA
+	RST	18H
+	RET
+
+;-------------------------------------------------
+;PRDEC - A(0-255)を10進3桁相当で表示
+;-------------------------------------------------
+PRDEC:
+	LD	E,A
+	LD	B,100
+	CALL	.pl
+	LD	B,10
+	CALL	.pl
+	LD	A,E
+	ADD	A,30H
+	RST	18H
+	RET
+.pl:	LD	C,30H
+.s:	LD	A,E
+	CP	B
+	JR	C,.e
+	SUB	B
+	LD	E,A
+	INC	C
+	JR	.s
+.e:	LD	A,C
+	RST	18H
+	RET
+
+;-------------------------------------------------
+;PUTS - HL=00終端文字列を表示
+;-------------------------------------------------
+PUTS:	LD	A,(HL)
+	OR	A
+	RET	Z
+	RST	18H
+	INC	HL
+	JR	PUTS
+
+MSG_RD:		DB	CR,LF,"RD=",00H
+MSG_NG:		DB	" NG=",00H
+MSG_WR:		DB	" WR=",00H
+MSG_CRLF:	DB	CR,LF,00H
+
+SAVSP:		DS	2
+STACK:		DS	128
+STACK_TOP	EQU	$
+
+	END
