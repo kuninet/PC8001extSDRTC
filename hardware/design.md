@@ -34,21 +34,24 @@ PIC18F47Q43 を PC-8001 外部CPUバスに直結し、SDカードを D0H-D6H の
 
 ## 2. ブロック図
 
-```
-        +5V ──┬──────────────┬────────────────┐
-              │              │                │
-  PC-8001     │         ┌────┴─────┐     ┌────┴─────────┐
-  拡張バス     │         │ PIC18F47 │ SPI │ microSD モジュール│
-  (5V) ───────┼────────>│   Q43    ├────>│ (3.3Vレギュ+    │──microSD
-   A0-A7      │  A0-A7  │  @5V     │     │  レベル変換 内蔵) │
-   D0-D7  <───┼────────>│ 64MHz内蔵 │     └──────────────┘
-   /IORQ      │  制御    │          │ I2C  ┌──────────────┐
-   /RD /WR    │────────>│          ├─────>│ DS3231 RTC    │ (将来)
-   /RESET     │         │          │     │  モジュール(5V) │
-   /WAIT  <───┼─OD──────┤ (CLCで   │     └──────────────┘
-              │ 4.7k↑   │  D0H-D6H │
-              │         │  デコード)│
-        GND ──┴─────────┴──────────┘
+```mermaid
+flowchart LR
+    subgraph PC["PC-8001 拡張バス (5V)"]
+        BUS["A0-A7 / D0-D7<br/>/IORQ /RD /WR /RESET"]
+        WAIT["/WAIT"]
+    end
+
+    subgraph BOARD["PICSD ボード (+5V 単一電源)"]
+        PIC["PIC18F47Q43 @5V<br/>内部64MHz<br/>CLCで D0H-D6H デコード<br/>512B セクタバッファ"]
+    end
+
+    SD["microSD モジュール<br/>3.3Vレギュ + レベル変換 内蔵"]
+    RTC["DS3231 RTC モジュール<br/>5V / I2C ・将来"]
+
+    BUS <-->|"A0-A7 / D0-D7 / 制御"| PIC
+    PIC -->|"/WAIT (OD・4.7kΩ↑ +5V)"| WAIT
+    PIC <-->|"SPI: SCK / MOSI / MISO / CS"| SD
+    PIC <-.->|"I2C: SCL / SDA"| RTC
 ```
 
 ## 3. ピンアサイン(PIC18F47Q43 / PDIP-40)※要照合

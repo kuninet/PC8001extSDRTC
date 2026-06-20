@@ -37,15 +37,21 @@ PIC は **「512バイト単位のランダムアクセス I/O デバイス」**
 
 ## アーキテクチャ
 
-```
-PC-8001 外部CPUバス ──┐
-  A0-A7 / D0-D7        │
-  /IORQ /RD /WR /RESET │   ┌──────────── PIC18F47Q43 ────────────┐
-  /WAIT  (←PICが駆動)  ├──>│ I/Oポートデコード(D0H-D6H)          │
-                       │   │ 512B セクタバッファ(PIC RAM)        │──SPI──> microSD
-                       │   │ コマンド/データ/ステータス レジスタ │──I2C──> (将来)RTC DS3231
-                       └───│ /WAIT ハンドシェイク                │
-                           └─────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph PC["PC-8001 外部CPUバス (5V)"]
+        BUS["A0-A7 / D0-D7<br/>/IORQ /RD /WR /RESET"]
+        WAIT["/WAIT (PICが駆動)"]
+    end
+
+    PIC["PIC18F47Q43<br/>I/Oポートデコード (D0H-D6H)<br/>512B セクタバッファ<br/>コマンド/データ/ステータス"]
+    SD["microSD"]
+    RTC["RTC DS3231 (将来)"]
+
+    BUS <-->|"A0-A7 / D0-D7 / 制御"| PIC
+    PIC -->|"/WAIT ハンドシェイク"| WAIT
+    PIC <-->|SPI| SD
+    PIC <-.->|I2C| RTC
 ```
 
 I/O ポートは PC-8001 未割り当ての拡張領域 **D0H-D6H** に割り当てます。
