@@ -5,6 +5,10 @@
 /tools/*
 !/tools/README.md
 
+# 外部資料(データシート等。第三者配布物のため含めない。入手方法は external/README.md)
+/external/*
+!/external/README.md
+
 # tools80 がソースの隣に出力する一時ファイル
 test/*.cmt
 
