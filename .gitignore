@@ -23,7 +23,13 @@ dist/
 *.cof
 nbproject/private/
 
-# KiCAD バックアップ
+# KiCAD(本体の .kicad_pro/.kicad_sch/.kicad_pcb と カスタムシンボル *.kicad_sym /
+# sym-lib-table はコミットする。以下のローカル設定・バックアップ・生成物は除外)
 *-bak
 *.bak
 fp-info-cache
+*.kicad_prl
+*.lck
+~*.lck
+*-backups/
+.history/
