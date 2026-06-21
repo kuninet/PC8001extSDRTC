@@ -3,8 +3,8 @@
 PIC18F47Q43 を PC-8001 外部CPUバスに直結し、SDカードを D0H-D6H の I/O デバイスとして
 見せるボードの設計仕様です。KiCad 入力前の「何をどう繋ぐか」を確定します。
 
-> ⚠️ ピン番号・PPS 割り当て・I2C 専用パッドは **データシート最終照合(フェーズB)** が必要な
-> 箇所に「※要照合」を付けています。値は具体的に置いていますが、製造前に必ず確認してください。
+> ✅ ピン番号・PPS 割り当て・I2C 専用 pin はデータシート(DS40002147E, Rev.E)で照合済み。
+> 実機で詰める項目(/WAIT タイミング、I2C 標準レベル動作、バスバッファ要否)は §6 に分けています。
 
 ## 1. 基本方針
 
@@ -57,19 +57,20 @@ flowchart LR
 ## 3. ピンアサイン(PIC18F47Q43 / PDIP-40)
 
 > ✅ **データシート照合済み**(DS40002147E, Rev.E)。ピン番号は Figure 2-3「40-Pin PDIP」/
-> Table 3-2「40/44/48-Pin Allocation Table」の **40-Pin PDIP 列**と一致。SPI(SCK1/SDO1/SDI1)は
-> PPS で再配置可能なので RC0-RC2 を選択。I2C は **I2C 専用ロジックレベルを持つ RC3/RC4**
-> (Table 3-2 Note 4)を使用。
+> Table 3-2「40/44/48-Pin Allocation Table」の **40-Pin PDIP 列**と一致。
 
-内部発振のため OSC1/OSC2(RA7/RA6)は GPIO に転用可能。SPI/CLC は PPS で再配置可能なので、
-ポートをまとめて使いやすいように割り当てる。
+ポート割り当ての考え方:
+- **アドレス A0-A7 は PORTC にまとめる**(1命令で読めてデコードが速い)。こうすると **PORTB が丸ごと空き**、
+  ICSP の RB6/RB7 に拡張バス信号を一切載せずに済む(=書込競合を構造的に排除)。
+- SPI/I2C は空いた **PORTB(RB0-RB5)** に PPS で配置。RB6/RB7 は **ICSP 専用**にする。
+- データ D0-D7 は **PORTD**、制御は **PORTA**。内部発振のため OSC1/OSC2(RA7/RA6)は予備。
 
 | pin | ポート | 割り当て | 方向 | 備考 |
 |---|---|---|---|---|
-| 1 | RE3/MCLR/VPP | MCLR | in | 10kΩ プルアップ + リセット回路 |
-| 2 | RA0 | /IORQ | in | 拡張バス。CLC入力 |
-| 3 | RA1 | /RD | in | 拡張バス。CLC/データ方向 |
-| 4 | RA2 | /WR | in | 拡張バス |
+| 1 | RE3/MCLR/VPP | MCLR | in | 10kΩ プルアップ + リセット回路(ICSP VPP 兼用) |
+| 2 | RA0 | /IORQ | in | 拡張バス。デコード/CLC入力 |
+| 3 | RA1 | /RD | in | 拡張バス。データ方向制御 |
+| 4 | RA2 | /WR | in | 拡張バス。書込ストローブ |
 | 5 | RA3 | /RESET | in | 拡張バス(PIC初期化トリガにも) |
 | 6 | RA4 | /WAIT | out(OD) | **オープンドレイン**。4.7kΩで+5VへWired-OR |
 | 7 | RA5 | (予備) | - | 拡張用 |
@@ -80,43 +81,45 @@ flowchart LR
 | 12 | VSS | GND | pwr | |
 | 13 | RA7/OSC1 | (予備) | - | 内部発振のため空き |
 | 14 | RA6/OSC2 | (予備) | - | 同上 |
-| 15 | RC0 | SD_SCK | out | SPI1 SCK(PPSで割当) |
-| 16 | RC1 | SD_MOSI(SDO1) | out | SPI1 SDO(PPSで割当) |
-| 17 | RC2 | SD_MISO(SDI1) | in | SPI1 SDI(PPSで割当) |
-| 18 | RC3 | RTC_SCL1 | out(OD) | **I2C専用レベルpin**(Note4)・将来 |
+| 15 | RC0 | A0 | in | アドレスバス |
+| 16 | RC1 | A1 | in | |
+| 17 | RC2 | A2 | in | |
+| 18 | RC3 | A3 | in | 本来I2C専用pinだがアドレス入力に使用(GPIOとして問題なし) |
 | 19 | RD0 | D0 | bidir | データバス |
 | 20 | RD1 | D1 | bidir | |
 | 21 | RD2 | D2 | bidir | |
 | 22 | RD3 | D3 | bidir | |
-| 23 | RC4 | RTC_SDA1 | bidir(OD) | **I2C専用レベルpin**(Note4)・将来 |
-| 24 | RC5 | SD_CS | out | GPIO(CS手動制御) |
-| 25 | RC6 | (予備) | - | |
-| 26 | RC7 | (予備) | - | |
+| 23 | RC4 | A4 | in | 本来I2C専用pinだがアドレス入力に使用(GPIOとして問題なし) |
+| 24 | RC5 | A5 | in | アドレスバス |
+| 25 | RC6 | A6 | in | |
+| 26 | RC7 | A7 | in | |
 | 27 | RD4 | D4 | bidir | データバス |
 | 28 | RD5 | D5 | bidir | |
 | 29 | RD6 | D6 | bidir | |
 | 30 | RD7 | D7 | bidir | |
 | 31 | VSS | GND | pwr | |
 | 32 | VDD | +5V | pwr | 0.1µF パスコン |
-| 33 | RB0 | A0 | in | アドレスバス |
-| 34 | RB1 | A1 | in | |
-| 35 | RB2 | A2 | in | |
-| 36 | RB3 | A3 | in | |
-| 37 | RB4 | A4 | in | |
-| 38 | RB5 | A5 | in | |
-| 39 | RB6 | A6 | in | =ICSPCLK。書込時はバス側を切る |
-| 40 | RB7 | A7 | in | アドレスバス。=ICSPDAT。書込時はバス側を切る |
+| 33 | RB0 | SD_SCK | out | SPI1 SCK(PPSで割当) |
+| 34 | RB1 | SD_MOSI(SDO1) | out | SPI1 SDO(PPSで割当) |
+| 35 | RB2 | SD_MISO(SDI1) | in | SPI1 SDI(PPSで割当) |
+| 36 | RB3 | SD_CS | out | GPIO(CS手動制御)。リセット時デセレクト用にプルアップ推奨 |
+| 37 | RB4 | RTC_SCL | out(OD) | I2C(PPSで割当)・標準STレベル・将来 |
+| 38 | RB5 | RTC_SDA | bidir(OD) | I2C(PPSで割当)・標準STレベル・将来 |
+| 39 | RB6 | ICSPCLK | - | **ICSP専用**。アプリ未使用。FWで出力Lか弱プルアップにしフロート回避 |
+| 40 | RB7 | ICSPDAT | - | 同上 |
 
 割り当ての要点:
-- **A0-A7 = PORTB**(入力)。`D0H-D6H` のアドレスデコードに使う(A7..A3=11010、A2..A0=ポート選択)。
+- **A0-A7 = PORTC**(入力)。1命令で読めてデコードが速い。`D0H-D6H` 判定は A7..A3=11010、A2..A0=ポート選択。
+  RC3/RC4 は本来 I2C 専用 pin だが、ここではアドレス入力として使用(通常 GPIO として問題なし)。
 - **D0-D7 = PORTD**(双方向)。`IN` 時のみ TRIS を出力に切り替えてドライブ。
-- **制御線 = PORTA**(RA0-RA5)。/WAIT は RA4 をオープンドレイン(ODCON)で。
-- **SPI = RC0-RC2 + RC5(CS)**。SCK1/SDO1/SDI1 は PPS 再配置可なので RC0-RC2 へ。CS は GPIO(RC5)。
-- **I2C = RC3/RC4**。RC3/RC4 は I2C 専用ロジックレベルを持つ pin(Table 3-2 Note 4)。PORTB は
-  アドレスバスで埋まるため、I2C は RB1/RB2 でなく RC3/RC4 を採用(将来の RTC 用)。
-- **ICSP**: RB6/RB7 が ICSPCLK/ICSPDAT を兼ねる(=A6/A7)。書き込み時は拡張バス側がこの2本を
-  駆動しないようにする(ジャンパ/バッファのイネーブルで分離)。
-- **I2C = RC3/RC4**(Q43 の I2C 専用パッド候補。SMBus/I2Cレベル対応)※要照合。将来 RTC 用。
+- **制御線 = PORTA**(RA0-RA4)。/WAIT は RA4 を ODCON でオープンドレイン。
+- **SPI = RB0-RB3**(SCK/MOSI/MISO/CS)。SCK1/SDO1/SDI1 は PPS 再配置可なので RB0-RB2 へ。CS は GPIO(RB3)。
+- **I2C = RB4/RB5**(将来 RTC)。PPS で割当。ただし I2C 専用ロジックレベルを持つ pin は **RC3/RC4 のみ**
+  (Table 3-2 Note 4)で、それらはアドレスに使うため、I2C は**標準 TTL/ST レベル**での動作になる。
+  低速・1デバイス・モジュール側プルアップ前提なら実用上問題ないが、実機で確認(§6)。
+- **ICSP = RB6/RB7**(+ MCLR/VDD/VSS)。**拡張バス信号を一切載せない**配置なので、PC-8001 に挿したままでも
+  抜いても**書込競合なし**(ジャンパ不要)。アプリ動作中 RB6/RB7 は ICSP ヘッダにしか繋がらないため、
+  FW で出力 L か弱プルアップにしてフロートを避ける。
 
 ## 4. 結線表(ネット単位)
 
@@ -124,14 +127,14 @@ flowchart LR
 
 | ネット | PC-8001 拡張バス | PIC(pin) | 備考 |
 |---|---|---|---|
-| A0 | A0 | RB0(33) | |
-| A1 | A1 | RB1(34) | |
-| A2 | A2 | RB2(35) | |
-| A3 | A3 | RB3(36) | |
-| A4 | A4 | RB4(37) | |
-| A5 | A5 | RB5(38) | |
-| A6 | A6 | RB6(39) | |
-| A7 | A7 | RB7(40) | |
+| A0 | A0 | RC0(15) | アドレスバス |
+| A1 | A1 | RC1(16) | |
+| A2 | A2 | RC2(17) | |
+| A3 | A3 | RC3(18) | |
+| A4 | A4 | RC4(23) | |
+| A5 | A5 | RC5(24) | |
+| A6 | A6 | RC6(25) | |
+| A7 | A7 | RC7(26) | |
 | D0 | D0 | RD0(19) | 双方向 |
 | D1 | D1 | RD1(20) | 双方向 |
 | D2 | D2 | RD2(21) | 双方向 |
@@ -140,7 +143,7 @@ flowchart LR
 | D5 | D5 | RD5(28) | 双方向 |
 | D6 | D6 | RD6(29) | 双方向 |
 | D7 | D7 | RD7(30) | 双方向 |
-| /IORQ | /IORQ | RA0(2) | CLC入力 |
+| /IORQ | /IORQ | RA0(2) | デコード/CLC入力 |
 | /RD | /RD | RA1(3) | データ方向制御 |
 | /WR | /WR | RA2(4) | 書き込みストローブ |
 | /RESET | /RESET | RA3(5) | |
@@ -155,10 +158,10 @@ flowchart LR
 
 | ネット | PIC(pin) | microSDモジュール | 備考 |
 |---|---|---|---|
-| SD_SCK | RC0(15) | CLK/SCK | SPIクロック |
-| SD_MOSI | RC1(16) | CMD/DI/MOSI | |
-| SD_MISO | RC2(17) | DAT0/DO/MISO | |
-| SD_CS | RC5(24) | CS/DAT3 | |
+| SD_SCK | RB0(33) | CLK/SCK | SPIクロック |
+| SD_MOSI | RB1(34) | CMD/DI/MOSI | |
+| SD_MISO | RB2(35) | DAT0/DO/MISO | |
+| SD_CS | RB3(36) | CS/DAT3 | リセット時デセレクト用に 10kΩ↑+5V 推奨 |
 | +5V | VDD | VCC | モジュール内で3.3V生成 |
 | GND | VSS | GND | |
 
@@ -166,8 +169,8 @@ flowchart LR
 
 | ネット | PIC(pin) | DS3231モジュール | 備考 |
 |---|---|---|---|
-| RTC_SCL | RC3(18) | SCL | I2C(モジュール側プルアップ有) |
-| RTC_SDA | RC4(23) | SDA | I2C |
+| RTC_SCL | RB4(37) | SCL | I2C(PPS割当・標準STレベル)。モジュール側プルアップ有 |
+| RTC_SDA | RB5(38) | SDA | I2C(PPS割当・標準STレベル) |
 | +5V | VDD | VCC | |
 | GND | VSS | GND | |
 
@@ -186,25 +189,33 @@ flowchart LR
 | 9 | 直列抵抗(MCLR) | 100〜470Ω | 1 | Figure 4-1 R2(ICSP保護) |
 | 10 | パスコン(MCLR) | 0.1µF | 1 | Figure 4-1 C2 |
 | 11 | プルアップ(I2C, 将来) | 4.7kΩ ×2 | 0-2 | モジュールに有れば不要 |
-| 12 | ICソケット | 40pin DIP | 1 | |
-| 13 | 拡張バスコネクタ | PC-8001 拡張バス対応 | 1 | 232C/sdd 流用 |
-| 14 | ICSPヘッダ | 5pin(MCLR/VDD/VSS/RB6/RB7) | 1 | PICKit等で書込 |
-| 15 | ピンヘッダ | モジュール接続用 | 適量 | |
+| 12 | プルアップ(SD_CS, 任意) | 10kΩ | 0-1 | 起動直後の SD 誤選択防止 |
+| 13 | ICソケット | 40pin DIP | 1 | |
+| 14 | 拡張バスコネクタ | PC-8001 拡張バス対応 | 1 | 232C/sdd 流用 |
+| 15 | ICSPヘッダ | 5pin(MCLR/VDD/VSS/RB6/RB7) | 1 | PICKit等で書込。RB6/RB7はアプリ未使用なのでバス競合なし |
+| 16 | ピンヘッダ | モジュール接続用 | 適量 | |
 
 ## 6. データシート照合の結果と残課題
 
 ### 照合済み(DS40002147E)
 - ✅ **PDIP-40 ピン番号**: Figure 2-3 / Table 3-2 の 40-Pin PDIP 列と本表が一致。
-- ✅ **SPI の PPS 割当**: SCK1/SDO1/SDI1 は PPS 再配置可能(Table 3-2 Note 1/2)。RC0-RC2 を選択。
-- ✅ **I2C 専用レベル pin**: RC3(SCL1)/RC4(SDA1)が I2C 専用ロジックレベル(Note 4)。RTC に採用。
+- ✅ **SPI の PPS 割当**: SCK1/SDO1/SDI1 は PPS 再配置可能(Table 3-2 Note 1/2)。RB0-RB2 を選択。
+- ✅ **I2C 専用レベル pin**: 本パートで I2C 専用ロジックレベルを持つのは **RC3/RC4 のみ**(Table 3-2 Note 4)。
+  他ピンも PPS で SCL/SDA を割り当て可能だが、入力レベルは I2C/SMBus 専用しきい値ではなく
+  **標準 TTL/ST**(INLVL で選択)になる、とデータシート本文で確認。本設計は RC3/RC4 をアドレスに
+  使うため、I2C(RB4/RB5)は標準 ST レベル動作。
 - ✅ **電源/MCLR**: VDD=11,32 / VSS=12,31 / MCLR=1。Figure 4-1 の推奨(10kΩ↑+100〜470Ω直列+0.1µF)。
+- ✅ **ICSP 競合の構造排除**: RB6/RB7 に拡張バス信号を載せない配置とし、書込時のバス競合を回避。
 
 ### 実機で詰める(フェーズB)
-1. **/WAIT のタイミング**: 1サイクル ~2.2μs 内に OD アサート/解除が間に合うか(ロジアナ実測)。
+1. **/WAIT のタイミング**(最優先): 1サイクル ~2.2μs 内に OD アサート/解除が間に合うか(ロジアナ実測)。
    → 最小プログラム `../test/WAITTEST.asm` + `../firmware/waittest/` で先に検証。
 2. **データバス直結 vs 74LVC245**: PIC の駆動能力・バス容量で判断。まず直結で試作。
-3. **ICSP とバスの共有**: RB6/RB7(=A6/A7)を書込時に分離する手段(ジャンパ/バッファEN)。
-4. **拡張バスの /WAIT ピン**: PC-8001 拡張バスの /WAIT 配線・プルアップ/Wired-OR を実機で確認。
+3. **I2C 標準レベル動作の確認**(RTC フェーズ): DS3231 を 5V・モジュールプルアップで接続し、
+   標準 ST しきい値で安定通信するか。不安定なら専用レベル pin を使う別配置やバスバッファを再検討。
+4. **SD_CS のリセット時デセレクト**: 起動直後 RB3 が入力(Hi-Z)の間に SD が誤選択されないか。
+   必要なら CS プルアップ(BOM #12)で抑える。
+5. **拡張バスの /WAIT ピン**: PC-8001 拡張バスの /WAIT 配線・プルアップ/Wired-OR を実機で確認。
 
 ## 7. 関連
 
