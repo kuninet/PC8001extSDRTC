@@ -22,6 +22,18 @@ dist/
 *.lst
 *.cof
 nbproject/private/
+# XC8 がソース直下に出す中間ファイル
+*.p1
+*.d
+*.pre
+*.sdb
+*.cmf
+*.sym
+*.hxl
+*.s
+funclist
+startup.*
+MPLABXLog.*
 
 # KiCAD(本体の .kicad_pro/.kicad_sch/.kicad_pcb と カスタムシンボル *.kicad_sym /
 # sym-lib-table はコミットする。以下のローカル設定・バックアップ・生成物は除外)
