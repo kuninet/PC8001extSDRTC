@@ -33,3 +33,11 @@ fp-info-cache
 ~*.lck
 *-backups/
 .history/
+
+# Freerouting の中間ファイル(回路図/基板から再生成可能)
+*.dsn
+*.ses
+*.rules
+
+# 空・未参照のKiCad自動生成ライブラリ
+New_Library.kicad_sym
